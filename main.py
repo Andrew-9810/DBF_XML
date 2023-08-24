@@ -29,67 +29,87 @@ with open('PATH_DB.json', 'r', encoding='utf-8') as path_file:
 dist_helper = pd.read_excel(f'{path_dir}\\dist_helper.xlsx')
 USZN_name = dist_helper['title'].tolist()
 
+ROOT_D = {}
+set_OTD_SV = set()
+COUNT = 1
+count = 1
 
-ROOT = []
+
+
+
+
 for name in USZN_name:
     # Прохожу по папкам с наименованиями УСЗН текущей датой.
     path_dir_iter = f'{path_dir}\\Входящие файлы\\{name}\\{Data_dir}'
+
     try:
         # Ловлю ошибку если папки с наименованием УСЗН нет.
         for root, dirs, files in os.walk(path_dir_iter):
+            logging.debug('#' * 50)
+            logging.debug(f'root: {root} dirs: {dirs} files: {files}')
+
             for file in files:
                 # Рекурсивно ищу файлы DBF.
                 if file.endswith(('.dbf', '.DBF')) and file[3] == 'D':
-
                     dbf_file_puth = root + '/' + str(file)
-
+                    logging.debug(dbf_file_puth)
                     # Открываю файл
                     db = DBF(dbf_file_puth, encoding='cp866')
-
-                    for count, db_string in enumerate(db):
-
+                    for _, db_string in enumerate(db):
                         NOM_VD = db_string['NOM_VD']
                         OTD_SV = db_string['OTD_SV']
-                        # FAM = db_string['FAM']
-                        # IMJA = db_string['IMJA']
-                        # OTCH = db_string['OTCH']
-                        # FIO = f'{FAM} {IMJA} {OTCH}'
-                        text = {OTD_SV:
-                                    {'NOM_VD': NOM_VD,
-                                     'data': []
-                                     }
-                                }
-                        # Добавляем шаблоны в JSON.
-                        filename = 'RAZ_DS.json'
-                        myfile = open(filename, mode='a+', encoding='utf-8')
+                        recipient = {'NOM_VD': NOM_VD, 'data': []}
+                        logging.debug(f'создано: {count}')
+                        count += 1
 
-                        json.dump(text, myfile, ensure_ascii=False)
-                        myfile.close()
+                        try:
+                            tmp_list = ROOT_D[OTD_SV]
+                            tmp_list.append(recipient)
+                            ROOT_D[OTD_SV] = tmp_list
+                        except KeyError:
+                            ROOT_D[OTD_SV] = [recipient]
+                        # Пишу данныe в список
+                        set_OTD_SV.add(OTD_SV)
 
+
+        list_OTD_SV = list(set_OTD_SV)
+        for root, dirs, files in os.walk(path_dir_iter):
+            logging.debug('*' * 50)
+            logging.debug(f'root: {root} dirs: {dirs} files: {files}')
             for file in files:
+
                 # Рекурсивно ищу файлы DBF.
                 if file.endswith(('.dbf', '.DBF')) and file[3] == 'S':
 
                     dbf_file_puth = root + '/' + str(file)
-
+                    logging.debug(dbf_file_puth)
                     # Открываю файл
                     db = DBF(dbf_file_puth, encoding='cp866')
 
-                    for count, db_string in enumerate(db):
+                    for _, db_string in enumerate(db):
 
                         NOM_VD = db_string['NOM_VD']
                         NOM_SP = db_string['NOM_SP']
                         KAT_EDV1 = db_string['KAT_EDV1']
-                        # Нужно читать из JSON
 
-                        text = {OTD_SV:
-                                    {'NOM_VD': NOM_VD,
-                                     'data': []
-                                     }
-                                }
-                        logging.debug(text)
+                        payment = {'NOM_SP': NOM_SP, 'KAT_EDV1': KAT_EDV1}
 
+                        for OTD in list_OTD_SV:
+                            len_list = len(ROOT_D[OTD])
+                            for iter in range(len_list):
+                                if ROOT_D[OTD][iter]['NOM_VD'] == NOM_VD:
+                                    ROOT_D[OTD][iter]['data'].append(payment)
+                                    logging.debug(f'Отработано: {COUNT} NOM_VD: {NOM_VD}')
+
+                                    COUNT += 1
     except FileNotFoundError:
         continue
 
 
+logging.debug(ROOT_D)
+
+# После отработки программы мы записываем в путь отработанный архив.
+filename = 'RAZ_DS.json'
+myfile = open(filename, mode='w', encoding='utf-8')
+json.dump(ROOT_D, myfile, ensure_ascii=False)
+myfile.close()
