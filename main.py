@@ -34,10 +34,6 @@ set_OTD_SV = set()
 COUNT = 1
 count = 1
 
-
-
-
-
 for name in USZN_name:
     # Прохожу по папкам с наименованиями УСЗН текущей датой.
     path_dir_iter = f'{path_dir}\\Входящие файлы\\{name}\\{Data_dir}'
@@ -91,8 +87,13 @@ for name in USZN_name:
                         NOM_VD = db_string['NOM_VD']
                         NOM_SP = db_string['NOM_SP']
                         KAT_EDV1 = db_string['KAT_EDV1']
+                        SUM_VIP = db_string['SUM_VIP']
 
-                        payment = {'NOM_SP': NOM_SP, 'KAT_EDV1': KAT_EDV1}
+                        payment = {
+                            'NOM_SP': NOM_SP,
+                            'KAT_EDV1': KAT_EDV1,
+                            'SUM_VIP': SUM_VIP
+                        }
 
                         for OTD in list_OTD_SV:
                             len_list = len(ROOT_D[OTD])
