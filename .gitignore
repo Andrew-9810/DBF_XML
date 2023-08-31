@@ -150,3 +150,7 @@ dmypy.json
 ЕДК/
 RAZ_DS.json
 PATH_DB.json
+
+valid_name_DBF.log
+XML_DBF.log
+DBF_JSON.log

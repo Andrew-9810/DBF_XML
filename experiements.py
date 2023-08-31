@@ -196,11 +196,14 @@
 #
 # import datetime
 # import dbf
-
+#
 # # Создаю таблицу в памяти
 # table = dbf.Table(
-#         filename='test.dbf',
-#         field_specs='NOM_VD C(8); SUM_VIP N(9,2); PR_SUM C(8); COD_NP C(2); K_SCH C(2); D_SP D',
+#         filename='RAZ_Dtest.dbf',
+#         field_specs=('N_UCH C(3); NOM_VD C(8); IST_SR C(2); FAM C(30);'
+#                      ' IMJA C(20); OTCH C(30); OTD_SV C(3); GOR C(3); ULICA C(3);'
+#                      ' DOM C(6); KORPUS C(2); KVART C(9); DOS_UCH C(2); DAT_VIP C(2);'
+#                      ' TIP_D C(2)'),
 #         on_disk=True,
 #         )
 # #
@@ -217,25 +220,136 @@
 #     print('#' * 15)
 
 
-import xml.etree.ElementTree as ET
+# import xml.etree.ElementTree as ET
+# from pathlib import Path
+#
+# # path = Path('D:\Голованов\DBF_XML_inp\Конвертер2\ГКУ\ГКУ\OUT-700-Y-2023-ORG-052-050-000000-DCK-00000-DPT-00059-DCK-00000-DIS-050-DCK-00003-OUTNMB-0000000015.xml')
+# path = Path('D:\Голованов\DBF_XML_inp\Конвертер2\ЕДК\ЕДК\OUT-700-Y-2023-ORG-052-050-000000-DCK-00000-DPT-00059-DCK-00000-DIS-050-DCK-00001-OUTNMB-0000000001.xml')
+# root = ET.parse(f'{path}').getroot()
+#
+# count = 0
+# # for tag in root.findall('ПачкаИсходящихДокументов/ЗАПОЛНЕННОЕ_ПОРУЧЕНИЕ_НА_ДОСТАВКУ_ГКУ'):
+# for element in root.findall('ПачкаИсходящихДокументов/ЗАПОЛНЕННОЕ_ПОРУЧЕНИЕ_НА_ДОСТАВКУ_ЕДК'):
+#     count += 1
+#     if element.find('НомерВыплатногоДела').text == '50165422':
+#         print(element.find('НомерВыплатногоДела').text, count)
+
+# x = int(input())
+# if x in [1, 2, 3, 4, 5, 6, 7]:
+#     print("True")
+# else:
+#     print("False")
+
+# import json
+#
+# list_OTD_SV = ['004']
+#
+# with open('RAZ_DS.json', 'r', encoding='utf-8') as path_file:
+#     """Пути до файлов RAZD.dbf, RAZS.dbf"""
+#     json_data = json.load(path_file)
+#     # Для создания DBF в одной из папок ГКУ или ЕДК.
+#     for OTD in list_OTD_SV:
+#         # Получатели в отделении связи.
+#         recipients_OTD = json_data[OTD]
+#         len_recipients = len(recipients_OTD)
+#         # Прохожусь по списку
+#
+#         for val in recipients_OTD:
+#             print(val)
+        # for list_of_OTD_SV in range(len_recipients):
+        #     # -->Номер выплатного дела получателя.
+        #     print(list_of_OTD_SV)
+        #     NOM_VD_recipient = json_data[OTD][list_of_OTD_SV]['NOM_VD']
+        #     print(NOM_VD_recipient)
+            # list_data = len(json_data[OTD][list_of_OTD_SV]['data'])
+            #
+            # # -->Получаю значение категории выплаты .
+            # for data in range(list_data):
+            #     KAT_EDV1 = json_data[OTD][list_of_OTD_SV]['data'][data]['KAT_EDV1']
+            #     PR_SUM = json_data[OTD][list_of_OTD_SV]['data'][data]['NOM_SP']
+            #     SUM_VIP = json_data[OTD][list_of_OTD_SV]['data'][data]['SUM_VIP']
+
+                #
+                # name_file_dbf = f'N{OTD}_02.dbf'
+
+
+
+import json
+import logging
+import os
+import pandas as pd
+import datetime
+
+
+
+from dotenv import load_dotenv
 from pathlib import Path
 
-# path = Path('D:\Голованов\DBF_XML_inp\Конвертер2\ГКУ\ГКУ\OUT-700-Y-2023-ORG-052-050-000000-DCK-00000-DPT-00059-DCK-00000-DIS-050-DCK-00003-OUTNMB-0000000015.xml')
-path = Path('D:\Голованов\DBF_XML_inp\Конвертер2\ЕДК\ЕДК\OUT-700-Y-2023-ORG-052-050-000000-DCK-00000-DPT-00059-DCK-00000-DIS-050-DCK-00001-OUTNMB-0000000001.xml')
-root = ET.parse(f'{path}').getroot()
 
-count = 0
-# for tag in root.findall('ПачкаИсходящихДокументов/ЗАПОЛНЕННОЕ_ПОРУЧЕНИЕ_НА_ДОСТАВКУ_ГКУ'):
-for element in root.findall('ПачкаИсходящихДокументов/ЗАПОЛНЕННОЕ_ПОРУЧЕНИЕ_НА_ДОСТАВКУ_ЕДК'):
-    count += 1
-    if element.find('НомерВыплатногоДела').text == '50165422':
-        print(element.find('НомерВыплатногоДела').text, count)
+load_dotenv()
+
+INPUT_DATA_PUTH = os.getenv('INPUT_DATA_PUTH')
+print(INPUT_DATA_PUTH)
+
+def data_dir_actual(path_dir):
+    """Ищет в имени папок дату и отдает последнюю."""
+    list_name = os.listdir(path=path_dir)
+    # Самая минимальная дата для сравнения.
+    data_actual = datetime.date(datetime.MINYEAR, 1, 1)
+    for name_dir in list_name:
+        try:
+            # Получение даты из имени папки.
+            list_data = name_dir.split('.')
+            year = int(list_data[2])
+            month = int(list_data[1])
+            day = int(list_data[0])
+            date_obj = datetime.date(year, month, day)
+
+            # Вычисляю свежую дату.
+            if data_actual < date_obj:
+                data_actual = date_obj
+            # Ловлю ошибки на случай присутсвия не даты в имени.
+        except ValueError and IndexError:
+            continue
+
+    list_data_actual = str(data_actual).split('-')
+    return f'{list_data_actual[2]}.{list_data_actual[1]}.{list_data_actual[0]}'
 
 
 
 
+# Настройка логирования
+logging.basicConfig(
+    # format='%(asctime)s - %(levelname)s - %(message)s',
+    format='%(message)s',
+    level=logging.DEBUG,
+    filename='DBF_JSON.log',
+    filemode='w'
+)
 
-    # value = tag.get('')
-    # if value is not None:
-    #     print(value)
-#
+with open('PATH_DB.json', 'r', encoding='utf-8') as path_file:
+    """Пути до файлов RAZD.dbf, RAZS.dbf"""
+    connect_data = json.load(path_file)
+    path_dir_root = connect_data['path']
+    print(path_dir_root)
+
+# Получаю список УСЗН для поиска в папках.
+dist_helper = pd.read_excel(f'{path_dir_root}\\dist_helper.xlsx')
+list_USZN_name = dist_helper['title'].tolist()
+
+ROOT_D = {}
+set_OTD_SV = set()
+COUNT = 1
+count = 1
+
+for name in list_USZN_name:
+    # Прохожу по папкам с наименованиями УСЗН текущей датой.
+    path_dir_iter_test = f'{path_dir_root}\\Входящие файлы\\{name}'
+
+    # Вызов функции поиска свежей даты
+    try:
+        Data_dir = data_dir_actual(path_dir_iter_test)
+    except FileNotFoundError:
+        continue
+
+    print(Data_dir)

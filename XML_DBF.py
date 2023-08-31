@@ -1,18 +1,25 @@
 import json
 import logging
+import os
 from pathlib import Path
 import dbf
 import xml.etree.ElementTree as ET
+from dotenv import load_dotenv
 
+DEBUG = False
 
-DEBUG = True
+load_dotenv()
+
+PATH_XML_GKU = os.getenv('PATH_XML_GKU')
+PATH_XML_EDK = os.getenv('PATH_XML_EDK')
+
 
 # Настройка логирования
 logging.basicConfig(
     # format='%(asctime)s - %(levelname)s - %(message)s',
     format='%(message)s',
     level=logging.DEBUG,
-    filename='main.log',
+    filename='XML_DBF.log',
     filemode='w'
 )
 
@@ -27,15 +34,64 @@ def create_DBF(filename):
     return table
 
 
-if DEBUG:
-    list_OTD_SV = ['004']
-else:
-    list_OTD_SV = ['053', '016', '069', '065', '111', '147', '018', '142', '117', '138', '041', '063', '095', '083', '004', '123', '101', '043']
+def path_KAT_EDV_1(dir_name, name_file_dbf,
+        path_XML, NOM_VD_recipient, SUM_VIP, PR_SUM):
+    """Создает необходимые папки, пишет в файл DBF"""
+    if not Path(dir_name).exists():
+        """Создаю папку"""
+        path = Path(dir_name)
+        path.mkdir()
+        # Проверяю существует ли файл
+    path_result_DBF = f'{dir_name}/{name_file_dbf}'
+    if not Path(f'{dir_name}/{name_file_dbf}').is_file():
+        create_DBF(path_result_DBF)
+
+    path_XML = Path(path_XML)
+    root = ET.parse(f'{path_XML}').getroot()
+
+    for element in root.findall(
+            f'ПачкаИсходящихДокументов/ЗАПОЛНЕННОЕ_ПОРУЧЕНИЕ_НА_ДОСТАВКУ_{dir_name}'):
+
+        if element.find('НомерВыплатногоДела').text == NOM_VD_recipient and \
+                float(element.find('СуммаКдоставке').text) == SUM_VIP:
+            logging.debug(f'NOM_VD: {NOM_VD_recipient}, SUM_VIP: {SUM_VIP}')
+            # Пишу в файл
+            table = dbf.Table(filename=path_result_DBF)
+            table.open(dbf.READ_WRITE)
+
+            if element.find('КодДоставки').text in ['1', '2', '3', '4', '5', '6', '7']:
+                COD_NP = element.find('КодДоставки').text
+            else:
+                COD_NP = '8'
+
+            Date = element.find('ДатаВыдачиДокумента').text
+            year = Date[6:]
+            month = Date[3:5]
+            day = Date[0:2]
+            D_SP = f'{year}{month}{day}'
+            K_SCH = '01'
+
+            for datum in (
+                    (f'{NOM_VD_recipient}',
+                     f'{SUM_VIP}',
+                     f'{PR_SUM}',
+                     f'{COD_NP}',
+                     f'{K_SCH}',
+                     dbf.Date.fromymd(f'{D_SP}')),
+            ):
+                table.append(datum)
+
+
+# if DEBUG:
+#     list_OTD_SV = ['004']
+# else:
+#     list_OTD_SV = ['053', '016', '069', '065', '111', '147', '018', '142', '117', '138', '041', '063', '095', '083', '004', '123', '101', '043']
 
 
 with open('RAZ_DS.json', 'r', encoding='utf-8') as path_file:
-    """Пути до файлов RAZD.dbf, RAZS.dbf"""
     json_data = json.load(path_file)
+    list_OTD_SV = json_data['list_OTD_SV']
+
     # Для создания DBF в одной из папок ГКУ или ЕДК.
     for OTD in list_OTD_SV:
         # Получатели в отделении связи.
@@ -51,78 +107,19 @@ with open('RAZ_DS.json', 'r', encoding='utf-8') as path_file:
             # -->Получаю значение категории выплаты .
             for data in range(list_data):
                 KAT_EDV1 = json_data[OTD][list_of_OTD_SV]['data'][data]['KAT_EDV1']
-                PR_SUM = json_data[OTD][list_of_OTD_SV]['data'][data]['NOM_SP']
+                PR_SUM = json_data[OTD][list_of_OTD_SV]['data'][data]['PR_SUM']
                 SUM_VIP = json_data[OTD][list_of_OTD_SV]['data'][data]['SUM_VIP']
 
-                logging.debug(f'category: {KAT_EDV1}, SUMM: {SUM_VIP}')
+                logging.debug(f'OTD_SV: {OTD}, category: {KAT_EDV1}, SUMM: {SUM_VIP}')
                 name_file_dbf = f'N{OTD}_02.dbf'
                 # SUB в ГКУ, остальное в ЕДК
                 if KAT_EDV1 == 'SUB':
-                    # Проверяю существует ли папка
-                    if not Path('ГКУ').exists():
-                        """Создаю папку"""
-                        path = Path('ГКУ')
-                        path.mkdir()
-                    # Проверяю существует ли файл
-                    if not Path(f'ГКУ/{name_file_dbf}').is_file():
-                        create_DBF(f'ГКУ/{name_file_dbf}')
-
-                    path = Path(
-                        'D:\Голованов\DBF_XML_inp\Конвертер2\ГКУ\ГКУ\OUT-700-Y-2023-ORG-052-050-000000-DCK-00000-DPT-00059-DCK-00000-DIS-050-DCK-00003-OUTNMB-0000000015.xml'
-                    )
-                    root = ET.parse(f'{path}').getroot()
-
-                    for element in root.findall('ПачкаИсходящихДокументов/ЗАПОЛНЕННОЕ_ПОРУЧЕНИЕ_НА_ДОСТАВКУ_ГКУ'):
-
-                        if element.find('НомерВыплатногоДела').text == NOM_VD_recipient and float(element.find('СуммаКдоставке').text) == SUM_VIP:
-                            logging.debug(f"НАШЕЛСЯ! {element.find('НомерВыплатногоДела').text}")
-
-                    # Пишу в файл
-                    table = dbf.Table(filename=f'ГКУ/{name_file_dbf}')
-                    table.open(dbf.READ_WRITE)
-
-                    # Забираю из XML
-                    COD_NP = '0'
-                    K_SCH = '01'
-
-                    for datum in (
-                            # XML
-                            (f'{NOM_VD_recipient}',
-                             # XML
-                             f'{SUM_VIP}',
-                             f'{PR_SUM}',
-                             f'{COD_NP}',
-                             f'{K_SCH}',
-                            # XML
-                             dbf.Date.fromymd('20010315')),
-                    ):
-                        table.append(datum)
+                    dir_name = 'ГКУ'
+                    path_KAT_EDV_1(dir_name, name_file_dbf,
+                                   PATH_XML_GKU, NOM_VD_recipient, SUM_VIP, PR_SUM)
 
                 else:
-                    # Проверяю существует ли папка
-                    if not Path('ЕДК').exists():
-                        """Создаю папку"""
-                        path = Path('ЕДК')
-                        path.mkdir()
-                    # Проверяю существует ли файл
-                    if not Path(f'ЕДК/{name_file_dbf}').is_file():
-                        create_DBF(f'ЕДК/{name_file_dbf}')
 
-                    # path = Path('D:\Голованов\DBF_XML_inp\Конвертер2\ЕДК\ЕДК\OUT-700-Y-2023-ORG-052-050-000000-DCK-00000-DPT-00059-DCK-00000-DIS-050-DCK-00001-OUTNMB-0000000001.xml')
-                    # root = ET.parse(f'{path}').getroot()
-                    # Пишу в файл
-                    table = dbf.Table(filename=f'ЕДК/{name_file_dbf}')
-                    table.open(dbf.READ_WRITE)
-                    # Забираю из XML
-                    COD_NP = '0'
-                    K_SCH = '01'
-
-                    for datum in (
-                            (f'{NOM_VD_recipient}',
-                             f'{SUM_VIP}',
-                             f'{PR_SUM}',
-                             f'{COD_NP}',
-                             f'{K_SCH}',
-                             dbf.Date.fromymd('20010315')),
-                    ):
-                        table.append(datum)
+                    dir_name = 'ЕДК'
+                    path_KAT_EDV_1(dir_name, name_file_dbf,
+                                   PATH_XML_EDK, NOM_VD_recipient, SUM_VIP, PR_SUM)
