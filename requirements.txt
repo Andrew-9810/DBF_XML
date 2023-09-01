@@ -1,0 +1,5 @@
+python-dotenv==1.0.0
+pandas==2.0.3
+dbfread==2.0.7
+dbf==0.99.3
+openpyxl==3.1.2

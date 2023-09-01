@@ -1,12 +1,12 @@
+import pandas as pd
+from dbfread import DBF
+from dotenv import load_dotenv
+
 import json
 import logging
 import os
-import pandas as pd
-
-from dbfread import DBF
-from dotenv import load_dotenv
 import datetime
-
+from pathlib import Path
 
 load_dotenv()
 
@@ -52,6 +52,7 @@ def main():
     # Получаю список УСЗН для поиска в папках.
     dist_helper = pd.read_excel(f'{GUIDE}')
     list_USZN_name = dist_helper['title'].tolist()
+    logging.debug(f'Список УСЗН получен: {list_USZN_name}')
 
     ROOT_D = {}
     set_OTD_SV = set()
@@ -60,15 +61,16 @@ def main():
 
     for name in list_USZN_name:
         # Прохожу по папкам с наименованиями УСЗН текущей датой.
-        path_dir = f'{INPUT_DATA_PUTH}\\Входящие файлы\\{name}'
+        root = Path(INPUT_DATA_PUTH)
+        path_dir = root / 'Входящие файлы' / name
 
-        # Вызов функции поиска свежей даты
         try:
             Data_dir = data_dir_actual(path_dir)
         except FileNotFoundError:
             continue
 
-        path_dir_iter = f'{INPUT_DATA_PUTH}\\Входящие файлы\\{name}\\{Data_dir}'
+        path_dir_iter = path_dir / Data_dir
+        logging.debug(f'Путь для поиска: {path_dir_iter}')
         '''
         Изначально прохожу по файлам RAZD чтоб сформировать шаблон с данными, 
         и затем добавлять в этот шаблон данные RAZS

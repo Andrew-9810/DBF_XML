@@ -1,12 +1,16 @@
+import dbf
+from dotenv import load_dotenv
+
 import json
 import logging
 import os
 from pathlib import Path
-import dbf
 import xml.etree.ElementTree as ET
-from dotenv import load_dotenv
+import time
+import multiprocessing
 
-DEBUG = False
+
+DEBUG = True
 
 load_dotenv()
 
@@ -82,16 +86,17 @@ def path_KAT_EDV_1(dir_name, name_file_dbf,
                 table.append(datum)
 
 
-# if DEBUG:
-#     list_OTD_SV = ['004']
-# else:
-#     list_OTD_SV = ['053', '016', '069', '065', '111', '147', '018', '142', '117', '138', '041', '063', '095', '083', '004', '123', '101', '043']
-
-
 with open('RAZ_DS.json', 'r', encoding='utf-8') as path_file:
     json_data = json.load(path_file)
-    list_OTD_SV = json_data['list_OTD_SV']
+    if DEBUG:
+        # list_OTD = json_data['list_OTD_SV']
+        # list_OTD_SV = []
+        # list_OTD_SV.append(list_OTD[0])
+        list_OTD_SV = ['004']
+    else:
+        list_OTD_SV = json_data['list_OTD_SV']
 
+    func()
     # Для создания DBF в одной из папок ГКУ или ЕДК.
     for OTD in list_OTD_SV:
         # Получатели в отделении связи.
@@ -123,3 +128,16 @@ with open('RAZ_DS.json', 'r', encoding='utf-8') as path_file:
                     dir_name = 'ЕДК'
                     path_KAT_EDV_1(dir_name, name_file_dbf,
                                    PATH_XML_EDK, NOM_VD_recipient, SUM_VIP, PR_SUM)
+
+if __name__ == "__main__":
+    start = time.time()
+    # узнаем количество ядер у процессора
+    n_proc = multiprocessing.cpu_count()
+    # вычисляем сколько циклов вычислений будет приходится
+    # на 1 ядро, что бы в сумме получилось 80 или чуть больше
+    calc = 80 // n_proc + 1
+    processesed(n_proc, calc)
+    end = time.time()
+    print(f"Всего {n_proc} ядер в процессоре")
+    print(f"На каждом ядре произведено {calc} циклов вычислений")
+    print(f"Итого {n_proc * calc} циклов за: ", end - start)
